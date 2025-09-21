@@ -6,7 +6,7 @@ import pickle
 import os
 
 # 🔍 Wczytaj plik CSV
-csv_file = "dane2.csv"  # Zmień nazwę jeśli inna
+csv_file = "data/dane2.csv"  # Zmień nazwę jeśli inna
 if not os.path.exists(csv_file):
     print(f"❌ Nie znaleziono pliku: {csv_file}")
     exit()
