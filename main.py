@@ -13,18 +13,6 @@ from PyQt5.QtCore import Qt, QTimer
 from ai_description import describe_exoplanet
 import plotly.express as px
 
-# ------------------------------------------------------------------
-# Przepiękny frontend dla Exoplanet Deluxe Edition
-# - nowy, bardziej współczesny układ
-# - panel boczny z filtrami
-# - pasek narzędzi z wyszukiwarką i kontrolkami strony
-# - ładne karty wyników z lekko zaokrąglonym cieniem
-# - prosty pasek postępu kiedy trwa ładowanie
-#
-# Zastosowanie: podmień stary plik main na ten lub uruchom obok.
-# Upewnij się że plik 'exoplanet_model.pkl' i moduł 'ai_description' są dostępne.
-# ------------------------------------------------------------------
-
 
 class ModernExoplanetApp(QWidget):
     def __init__(self):
