@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont, QPixmap, QIcon
 from PyQt5.QtCore import Qt, QTimer
 from ai_description import describe_exoplanet
+from planet_dialog import PlanetDialog
 import plotly.express as px
 
 
@@ -91,6 +92,73 @@ class ModernExoplanetApp(QWidget):
         top_bar.addWidget(self.plot_button)
 
         main_layout.addLayout(top_bar)
+
+
+        # Kosmiczny przycisk zamykania
+        close_btn = QPushButton("✖")
+        close_btn.setToolTip("Zamknij aplikację")
+        close_btn.setFixedSize(36, 36)
+        close_btn.setStyleSheet("""
+            QPushButton {
+        background-color: qlineargradient(
+            x1:0, y1:0, x2:1, y2:1,
+            stop:0 #0a1a40, stop:1 #001122
+        );
+        color: #66ccff;
+        font-size: 20px;
+        font-weight: bold;
+        border-radius: 20px;
+        border: 2px solid #3399ff;
+        padding: 0;
+    }
+    QPushButton:hover {
+        background-color: qlineargradient(
+            x1:0, y1:0, x2:1, y2:1,
+            stop:0 #003366, stop:1 #001a33
+        );
+        color: #99ddff;
+        border: 2px solid #66ccff;
+        text-shadow: 0px 0px 8px #66ccff;
+    }
+
+""")
+        close_btn.clicked.connect(self.close)
+
+        top_bar.addWidget(close_btn)
+
+
+
+    # Kosmiczny przycisk minimalizacji
+        min_btn = QPushButton("▬")
+        min_btn.setToolTip("Minimalizuj okno")
+        min_btn.setFixedSize(40, 40)
+        min_btn.setStyleSheet("""
+        QPushButton {
+        background-color: qlineargradient(
+            x1:0, y1:0, x2:1, y2:1,
+            stop:0 #0a1a40, stop:1 #001122
+        );
+        color: #66ccff;
+        font-size: 18px;
+        font-weight: bold;
+        border-radius: 20px;
+        border: 2px solid #3399ff;
+        }
+        QPushButton:hover {
+        background-color: qlineargradient(
+            x1:0, y1:0, x2:1, y2:1,
+            stop:0 #003366, stop:1 #001a33
+        );
+        color: #99ddff;
+        border: 2px solid #66ccff;
+    }
+""")
+        min_btn.clicked.connect(self.showMinimized)
+
+
+
+
+
 
         # --- central area ---
         center_layout = QHBoxLayout()
@@ -248,12 +316,24 @@ class ModernExoplanetApp(QWidget):
             df = pd.read_csv(file_path, sep=",", skiprows=0, on_bad_lines="skip", engine="python")
             df.columns = df.columns.str.strip().str.lower()
             required = ['koi_period', 'koi_duration', 'koi_depth', 'koi_prad', 'kepid']
+            # zachowaj współrzędne jeśli dostępne
+            optional = [c for c in ['ra', 'dec'] if c in df.columns]
             if not all(col in df.columns for col in required):
                 QMessageBox.critical(self, "Błąd", f"Brakuje kolumn: {required}")
                 self._stop_loading()
                 return
-            df = df[required].dropna()
+            df = df[required + optional].dropna(subset=required)
             features = ['koi_period', 'koi_duration', 'koi_depth', 'koi_prad']
+            # upewnij się, że współrzędne są liczbami, jeśli są obecne
+            for c in ['ra', 'dec']:
+                if c in df.columns:
+                    df[c] = pd.to_numeric(df[c], errors='coerce')
+            # automatyczne filtrowanie rekordów tylko z poprawnymi RA/DEC
+            if all(c in df.columns for c in ['ra', 'dec']):
+                df = df.dropna(subset=['ra', 'dec'])
+                # odfiltruj wiersze spoza zakresu (opcjonalna sanity check)
+                df = df[(df['ra'] >= 0) & (df['ra'] < 360) & (df['dec'] >= -90) & (df['dec'] <= 90)]
+
 
             if self.model is not None:
                 df['prediction'] = self.model.predict(df[features])
@@ -385,10 +465,11 @@ class ModernExoplanetApp(QWidget):
             describe_btn = QPushButton("Opisz")
             describe_btn.clicked.connect(lambda _, r=row: self.show_description(r))
             right.addWidget(describe_btn)
+            map_btn = QPushButton("Mapa")
 
-            view_btn = QPushButton("Szczegóły")
-            view_btn.clicked.connect(lambda _, r=row: self.show_detail_dialog(r))
-            right.addWidget(view_btn)
+            map_btn.clicked.connect(lambda _, r=row: self.show_sky_map(r))
+
+            right.addWidget(map_btn)
 
             card_layout.addLayout(right)
             card.setLayout(card_layout)
@@ -406,17 +487,27 @@ class ModernExoplanetApp(QWidget):
         msg.exec_()
 
     def show_detail_dialog(self, row):
-        # prosty dialog z danymi — można rozbudować
-        text = (
-            f"KepID: {row['kepid']}\n"
-            f"Promień: {row['koi_prad']} R⊕\n"
-            f"Okres: {row['koi_period']} dni\n"
-            f"Czas trwania: {row['koi_duration']}\n"
-            f"Głębokość: {row['koi_depth']}\n"
-            f"Predykcja: {row['prediction_label']}\n"
-            f"Habitability: {row['habitable']}"
-        )
-        QMessageBox.information(self, f"Szczegóły {row['kepid']}", text)
+        # otwórz bogatszy dialog z przyciskiem do mapy
+        dlg = PlanetDialog(row, self)
+        dlg.exec_()
+
+    def show_sky_map(self, row):
+        ra = row.get('ra') if hasattr(row, 'get') else (row['ra'] if 'ra' in row.index else None)
+        dec = row.get('dec') if hasattr(row, 'get') else (row['dec'] if 'dec' in row.index else None)
+        try:
+            import pandas as _pd
+            if ra is None or dec is None or _pd.isna(ra) or _pd.isna(dec):
+                QMessageBox.information(self, 'Brak danych', 'Brak współrzędnych RA/DEC dla tej planety.')
+                return
+        except Exception:
+            pass
+        # użyj istniejącego SkyMap z RA/DEC
+        try:
+            from sky_map import SkyMap
+            self._sky = SkyMap(ra=float(ra), dec=float(dec))
+            self._sky.show()
+        except Exception as e:
+            QMessageBox.critical(self, 'Mapa nieba', f'Nie udało się otworzyć mapy: {e}')
 
     def show_stats(self, df):
         total = len(df)
@@ -471,5 +562,5 @@ class ModernExoplanetApp(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = ModernExoplanetApp()
-    window.show()
+    window.showFullScreen()
     sys.exit(app.exec_())
