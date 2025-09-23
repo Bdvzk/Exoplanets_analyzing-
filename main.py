@@ -14,6 +14,7 @@ from ai_description import describe_exoplanet
 import plotly.express as px
 
 
+
 class ModernExoplanetApp(QWidget):
     def __init__(self):
         super().__init__()
@@ -26,12 +27,14 @@ class ModernExoplanetApp(QWidget):
             QWidget { background-color: #0f1720; color: #e6eef8; font-family: 'Segoe UI', Arial; }
             QLabel#title { font-size: 22px; font-weight: 700; color: #fff; }
             QPushButton { background-color: #1f2937; border-radius: 10px; padding: 8px 12px; }
-            QPushButton:hover { background-color: #2b3a4a; }
+            QPushButton:hover { background-color: blue; }
             QGroupBox { border: 1px solid #203040; border-radius: 8px; margin-top: 6px; }
             QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }
             QScrollArea { border: none; }
             QFrame.card { background-color: #0f1726; border: 1px solid rgba(255,255,255,0.03); border-radius: 12px; }
             QLabel.small { color: #b7c3d6; font-size: 11px; }
+            
+
         """)
 
         # Data
@@ -396,7 +399,11 @@ class ModernExoplanetApp(QWidget):
             description = describe_exoplanet(row)
         except Exception:
             description = "Brak opisu — nie udało się wygenerować opisu." 
-        QMessageBox.information(self, f"Opis planety {row['kepid']}", description)
+        msg = QMessageBox(self)
+        msg.setWindowTitle(f"Opis planety {row['kepid']}")
+        msg.setTextFormat(Qt.PlainText)  # ⬅️ to kluczowe!
+        msg.setText(description)
+        msg.exec_()
 
     def show_detail_dialog(self, row):
         # prosty dialog z danymi — można rozbudować
