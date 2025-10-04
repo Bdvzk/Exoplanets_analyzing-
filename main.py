@@ -519,7 +519,7 @@ class ModernExoplanetApp(QWidget):
             rightw = QWidget(); right = QVBoxLayout(rightw)
             describe_btn = QPushButton("Opisz")
             describe_btn.setProperty("class", "primary")
-            describe_btn.clicked.connect(lambda _, r=row: self.show_description(r))
+            describe_btn.clicked.connect(lambda _, r=row: self.show_detail_dialog(r))
             right.addWidget(describe_btn)
             map_btn = QPushButton("Mapa")
             map_btn.clicked.connect(lambda _, r=row: self.show_sky_map(r))
@@ -659,8 +659,16 @@ class ModernExoplanetApp(QWidget):
         dlg.showFullScreen(); dlg.raise_(); dlg.activateWindow()
 
     def show_detail_dialog(self, row):
+        # utrzymuj referencję, by GC nie zamknął okna
+        if not hasattr(self, '_open_dialogs'):
+            self._open_dialogs = []
         dlg = PlanetDialog(row, self)
+        self._open_dialogs.append(dlg)
         dlg.exec_()
+        try:
+            self._open_dialogs.remove(dlg)
+        except Exception:
+            pass
 
     def show_sky_map(self, row):
         ra = self._get(row, 'ra')
