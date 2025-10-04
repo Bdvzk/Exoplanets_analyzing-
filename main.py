@@ -1,19 +1,37 @@
 import sys
+import math
 import pandas as pd
 import pickle
 import requests
+import os
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog,
     QLabel, QScrollArea, QFrame, QMessageBox, QHBoxLayout,
     QCheckBox, QSlider, QGroupBox, QFormLayout, QLineEdit,
-    QComboBox, QSizePolicy, QSpacerItem, QProgressBar
+    QComboBox, QSizePolicy, QSpacerItem, QProgressBar,
+    QGridLayout, QTextEdit
 )
+from PyQt5.QtWidgets import QWidget as QtWidget
 from PyQt5.QtGui import QFont, QPixmap, QIcon
 from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtWidgets import QGraphicsDropShadowEffect
 from ai_description import describe_exoplanet
 from planet_dialog import PlanetDialog
 import plotly.express as px
 
+
+ACCENT = "#22d3ee"  # cyjan
+BG_DARK = "#0b1220"
+CARD_BG = "#0f1726"
+BORDER = "#1f2a44"
+TEXT = "#e6eef8"
+SUBTLE = "#b7c3d6"
+
+# Głębszy motyw tylko dla okna opisu
+DIALOG_BG = "#050913"
+DIALOG_CARD = "#0a0f1d"
+DIALOG_BORDER = "#111a2e"
+DIALOG_TEXT = "#eaf2ff"
 
 
 class ModernExoplanetApp(QWidget):
@@ -23,19 +41,33 @@ class ModernExoplanetApp(QWidget):
         self.setGeometry(80, 80, 1200, 820)
         self.setWindowIcon(QIcon("assets/kepler_logo.png"))
 
-        # dark theme (elegancki, kontrastowy)
-        self.setStyleSheet("""
-            QWidget { background-color: #0f1720; color: #e6eef8; font-family: 'Segoe UI', Arial; }
-            QLabel#title { font-size: 22px; font-weight: 700; color: #fff; }
-            QPushButton { background-color: #1f2937; border-radius: 10px; padding: 8px 12px; }
-            QPushButton:hover { background-color: blue; }
-            QGroupBox { border: 1px solid #203040; border-radius: 8px; margin-top: 6px; }
-            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }
-            QScrollArea { border: none; }
-            QFrame.card { background-color: #0f1726; border: 1px solid rgba(255,255,255,0.03); border-radius: 12px; }
-            QLabel.small { color: #b7c3d6; font-size: 11px; }
-            
+        # Global stylesheet — czystsza typografia, lepsze stany hover/pressed
+        self.setStyleSheet(f"""
+            QWidget {{ background-color: {BG_DARK}; color: {TEXT}; font-family: 'Segoe UI', Arial; }}
+            QLabel#title {{ font-size: 22px; font-weight: 700; color: #fff; }}
+            QLabel.small {{ color: {SUBTLE}; font-size: 11px; }}
+            QGroupBox {{ border: 1px solid {BORDER}; border-radius: 12px; margin-top: 10px; }}
+            QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 2px 6px; color: {SUBTLE}; }}
+            QScrollArea {{ border: none; }}
 
+            QPushButton {{
+                background-color: #162133;
+                border: 1px solid {BORDER};
+                border-radius: 10px;
+                padding: 10px 14px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{ background-color: #1c2a44; border-color: {ACCENT}; color: {ACCENT}; }}
+            QPushButton:pressed {{ background-color: #0f1a33; }}
+
+            QPushButton.primary {{ background-color: {ACCENT}; color: #001018; border: none; }}
+            QPushButton.primary:hover {{ filter: brightness(1.1); }}
+
+            QFrame.card {{ background-color: {CARD_BG}; border: 1px solid rgba(255,255,255,0.04); border-radius: 14px; }}
+            QLabel.badge {{ border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700; }}
+            QLabel.badge.ok {{ background: rgba(34, 211, 238, .15); color: {ACCENT}; border: 1px solid rgba(34, 211, 238, .35); }}
+            QLabel.badge.warn {{ background: rgba(245, 158, 11, .12); color: #f59e0b; border: 1px solid rgba(245, 158, 11, .3); }}
+            QLabel.badge.err {{ background: rgba(239, 68, 68, .14); color: #ef4444; border: 1px solid rgba(239, 68, 68, .32); }}
         """)
 
         # Data
@@ -51,7 +83,7 @@ class ModernExoplanetApp(QWidget):
         self.current_page = 0
         self.page_size = 12
 
-        # main layout: top toolbar + central area (sidebar + content)
+        # main layout: top toolbar + central area
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(12, 12, 12, 12)
         main_layout.setSpacing(12)
@@ -63,7 +95,7 @@ class ModernExoplanetApp(QWidget):
         logo = QLabel()
         pix = QPixmap("assets/kepler_logo.png")
         if not pix.isNull():
-            pix = pix.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            pix = pix.scaled(56, 56, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             logo.setPixmap(pix)
         top_bar.addWidget(logo)
 
@@ -74,9 +106,9 @@ class ModernExoplanetApp(QWidget):
         top_bar.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Szukaj po ID (kepid) lub etykiecie predykcji...")
+        self.search_input.setPlaceholderText("Szukaj po ID (kepid) lub etykiecie predykcji…  ⏎")
         self.search_input.returnPressed.connect(self.apply_filters)
-        self.search_input.setMaximumWidth(360)
+        self.search_input.setMaximumWidth(420)
         top_bar.addWidget(self.search_input)
 
         self.page_size_combo = QComboBox()
@@ -86,79 +118,25 @@ class ModernExoplanetApp(QWidget):
         top_bar.addWidget(QLabel("Na stronie:"))
         top_bar.addWidget(self.page_size_combo)
 
-        self.plot_button = QPushButton("Pokaż wykres")
+        self.plot_button = QPushButton("Wykres")
         self.plot_button.clicked.connect(self.show_plot)
         self.plot_button.setEnabled(False)
         top_bar.addWidget(self.plot_button)
 
-        main_layout.addLayout(top_bar)
-
-
-        # Kosmiczny przycisk zamykania
+        # Zamknij / minimalizuj — małe, dyskretne
         close_btn = QPushButton("✖")
-        close_btn.setToolTip("Zamknij aplikację")
+        close_btn.setToolTip("Zamknij aplikację (Esc)")
         close_btn.setFixedSize(36, 36)
-        close_btn.setStyleSheet("""
-            QPushButton {
-        background-color: qlineargradient(
-            x1:0, y1:0, x2:1, y2:1,
-            stop:0 #0a1a40, stop:1 #001122
-        );
-        color: #66ccff;
-        font-size: 20px;
-        font-weight: bold;
-        border-radius: 20px;
-        border: 2px solid #3399ff;
-        padding: 0;
-    }
-    QPushButton:hover {
-        background-color: qlineargradient(
-            x1:0, y1:0, x2:1, y2:1,
-            stop:0 #003366, stop:1 #001a33
-        );
-        color: #99ddff;
-        border: 2px solid #66ccff;
-        text-shadow: 0px 0px 8px #66ccff;
-    }
-
-""")
         close_btn.clicked.connect(self.close)
-
         top_bar.addWidget(close_btn)
 
-
-
-    # Kosmiczny przycisk minimalizacji
         min_btn = QPushButton("▬")
         min_btn.setToolTip("Minimalizuj okno")
-        min_btn.setFixedSize(40, 40)
-        min_btn.setStyleSheet("""
-        QPushButton {
-        background-color: qlineargradient(
-            x1:0, y1:0, x2:1, y2:1,
-            stop:0 #0a1a40, stop:1 #001122
-        );
-        color: #66ccff;
-        font-size: 18px;
-        font-weight: bold;
-        border-radius: 20px;
-        border: 2px solid #3399ff;
-        }
-        QPushButton:hover {
-        background-color: qlineargradient(
-            x1:0, y1:0, x2:1, y2:1,
-            stop:0 #003366, stop:1 #001a33
-        );
-        color: #99ddff;
-        border: 2px solid #66ccff;
-    }
-""")
+        min_btn.setFixedSize(36, 36)
         min_btn.clicked.connect(self.showMinimized)
+        top_bar.addWidget(min_btn)
 
-
-
-
-
+        main_layout.addLayout(top_bar)
 
         # --- central area ---
         center_layout = QHBoxLayout()
@@ -171,6 +149,7 @@ class ModernExoplanetApp(QWidget):
 
         load_btn = QPushButton("Wczytaj CSV")
         load_btn.clicked.connect(self.load_csv)
+        load_btn.setProperty("class", "secondary")
         sidebar_layout.addWidget(load_btn)
 
         nasa_btn = QPushButton("Pobierz dane z NASA")
@@ -211,6 +190,7 @@ class ModernExoplanetApp(QWidget):
 
         apply_btn = QPushButton("Odśwież filtry")
         apply_btn.clicked.connect(self.apply_filters)
+        apply_btn.setProperty("class", "primary")
         sidebar_layout.addWidget(apply_btn)
 
         save_btn = QPushButton("Zapisz wyniki")
@@ -286,6 +266,54 @@ class ModernExoplanetApp(QWidget):
         self.plot_button = self.plot_button
         self.save_btn = save_btn
 
+        # Skróty klawiaturowe
+        self.shortcut_setup()
+
+    # ------------------- helpers -------------------
+    def shortcut_setup(self):
+        # proste skróty bez QShortcut (żeby nie dodawać importu): Esc zamyka, Ctrl+F fokusuje search
+        self.keyPressEvent = self._key_press_override
+
+    def _key_press_override(self, event):
+        if event.key() == Qt.Key_Escape:
+            self.close()
+        if event.modifiers() & Qt.ControlModifier and event.key() == Qt.Key_F:
+            self.search_input.setFocus()
+
+    def _get(self, row, key, default=None):
+        try:
+            if hasattr(row, 'get'):
+                return row.get(key, default)
+            return row[key] if key in row.index else default
+        except Exception:
+            return default
+
+    def _safe_float(self, x):
+        try:
+            v = float(x)
+            if pd.isna(v):
+                return None
+            return v
+        except Exception:
+            return None
+
+    def _estimate_insolation(self, row):
+        insol = self._safe_float(self._get(row, 'koi_insol'))
+        if insol is not None:
+            return insol
+        teff = self._safe_float(self._get(row, 'koi_steff'))
+        rstar = self._safe_float(self._get(row, 'koi_srad'))
+        mstar = self._safe_float(self._get(row, 'koi_smass'))
+        period = self._safe_float(self._get(row, 'koi_period'))
+        a_au = None
+        if period is not None and mstar is not None and mstar > 0:
+            a_au = ((period/365.25)**2 * mstar)**(1/3)
+        if teff is None or rstar is None or a_au is None or a_au == 0:
+            return None
+        l_rel = (rstar**2) * ((teff/5778.0)**4)
+        insol = l_rel / (a_au**2)
+        return insol
+
     # ------------------- data loading & processing -------------------
     def load_csv(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Wybierz plik CSV", "", "CSV Files (*.csv)")
@@ -316,33 +344,27 @@ class ModernExoplanetApp(QWidget):
             df = pd.read_csv(file_path, sep=",", skiprows=0, on_bad_lines="skip", engine="python")
             df.columns = df.columns.str.strip().str.lower()
             required = ['koi_period', 'koi_duration', 'koi_depth', 'koi_prad', 'kepid']
-            # zachowaj współrzędne jeśli dostępne
-            optional = [c for c in ['ra', 'dec'] if c in df.columns]
+            optional = [c for c in ['ra', 'dec', 'koi_teq', 'koi_steff', 'koi_srad', 'koi_smass', 'koi_insol'] if c in df.columns]
             if not all(col in df.columns for col in required):
                 QMessageBox.critical(self, "Błąd", f"Brakuje kolumn: {required}")
                 self._stop_loading()
                 return
             df = df[required + optional].dropna(subset=required)
             features = ['koi_period', 'koi_duration', 'koi_depth', 'koi_prad']
-            # upewnij się, że współrzędne są liczbami, jeśli są obecne
-            for c in ['ra', 'dec']:
+            for c in ['ra', 'dec', 'koi_teq', 'koi_steff', 'koi_srad', 'koi_smass', 'koi_insol']:
                 if c in df.columns:
                     df[c] = pd.to_numeric(df[c], errors='coerce')
-            # automatyczne filtrowanie rekordów tylko z poprawnymi RA/DEC
             if all(c in df.columns for c in ['ra', 'dec']):
                 df = df.dropna(subset=['ra', 'dec'])
-                # odfiltruj wiersze spoza zakresu (opcjonalna sanity check)
                 df = df[(df['ra'] >= 0) & (df['ra'] < 360) & (df['dec'] >= -90) & (df['dec'] <= 90)]
-
 
             if self.model is not None:
                 df['prediction'] = self.model.predict(df[features])
             else:
-                # fallback: prosty heurystyczny predictor (jeśli model nie jest dostępny)
                 df['prediction'] = ((df['koi_prad'] > 0.8) & (df['koi_depth'] < 8000)).astype(int)
 
             df['prediction_label'] = df['prediction'].apply(lambda x: "EGZOPLANETA" if x == 1 else "FAŁSZYWY POZYTYW")
-
+            df['insolation_s_earth'] = df.apply(self._estimate_insolation, axis=1)
             df['habitable'] = df.apply(self.check_habitability, axis=1)
 
             self.df = df.reset_index(drop=True)
@@ -358,25 +380,38 @@ class ModernExoplanetApp(QWidget):
             QMessageBox.critical(self, "Błąd", str(e))
             self._stop_loading()
 
+    # -------------------- bardziej naukowe kryterium --------------------
     def check_habitability(self, row):
-        if (
-            0.5 <= row['koi_prad'] <= 2.5 and
-            50 <= row['koi_period'] <= 500 and
-            row['koi_depth'] < 5000
-        ):
-            return "Możliwe warunki do życia"
-        else:
+        r = self._safe_float(self._get(row, 'koi_prad'))
+        teq = self._safe_float(self._get(row, 'koi_teq'))
+        teff = self._safe_float(self._get(row, 'koi_steff'))
+        S = self._safe_float(self._get(row, 'insolation_s_earth'))
+
+        if teff is not None and not (2600 <= teff <= 7200):
             return "Warunki nie sprzyjają życiu"
+
+        rocky_strict = (r is not None) and (0.5 <= r <= 1.8)
+        rocky_loose = (r is not None) and (0.5 <= r <= 2.5)
+
+        if S is not None and rocky_strict and (0.35 <= S <= 1.5):
+            return "Możliwe warunki do życia"
+        if S is not None and rocky_loose and (0.25 <= S <= 2.2):
+            return "Marginalnie możliwe"
+
+        if teq is not None:
+            if rocky_strict and (240 <= teq <= 330):
+                return "Możliwe warunki do życia"
+            if rocky_loose and (200 <= teq <= 360):
+                return "Marginalnie możliwe"
+        return "Warunki nie sprzyjają życiu"
 
     # ------------------- filtering / pagination / UI update -------------------
     def apply_filters(self):
         if self.df is None:
             return
         df = self.df.copy()
-        # wyszukiwanie tekstowe
         text = self.search_input.text().strip()
         if text:
-            # prosty filtr: numeric -> kepid, else wyszukaj w labelach
             if text.isdigit():
                 df = df[df['kepid'].astype(str).str.contains(text)]
             else:
@@ -386,7 +421,7 @@ class ModernExoplanetApp(QWidget):
         df = df[df['koi_depth'] >= self.slider_depth.value()]
         df = df[df['koi_period'] >= self.slider_period.value()]
         if self.habitable_checkbox.isChecked():
-            df = df[df['habitable'] == "Możliwe warunki do życia"]
+            df = df[df['habitable'].isin(["Możliwe warunki do życia", "Marginalnie możliwe"])]
         if self.exoplanet_checkbox.isChecked():
             df = df[df['prediction'] == 1]
 
@@ -418,8 +453,22 @@ class ModernExoplanetApp(QWidget):
             self.current_page -= 1
             self.update_page()
 
+    def _shadow(self, w, radius=24, opacity=0.3):
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(radius)
+        shadow.setColor(Qt.black)
+        shadow.setXOffset(0)
+        shadow.setYOffset(6)
+        w.setGraphicsEffect(shadow)
+
+    def _badge(self, text, kind="ok"):
+        b = QLabel(text)
+        b.setObjectName("badge")
+        b.setProperty("class", f"badge {kind}")
+        b.setAlignment(Qt.AlignCenter)
+        return b
+
     def display_cards(self, df):
-        # wyczyść
         for i in reversed(range(self.scroll_layout.count())):
             w = self.scroll_layout.itemAt(i).widget()
             if w:
@@ -431,69 +480,191 @@ class ModernExoplanetApp(QWidget):
             self.scroll_layout.addWidget(empty)
             return
 
-        # utwórz ładne karty
         for _, row in df.iterrows():
             card = QFrame()
             card.setObjectName('card')
             card.setProperty('class', 'card')
-            card.setStyleSheet("")
-            card_layout = QHBoxLayout()
-            card_layout.setContentsMargins(12, 8, 12, 8)
+            card_layout = QGridLayout(card)
+            card_layout.setContentsMargins(14, 10, 14, 10)
+            card_layout.setHorizontalSpacing(16)
 
-            # left: ikonka + podstawowe info
+            # lewa: identyfikacja
             left = QVBoxLayout()
             kep_label = QLabel(f"KepID: {row['kepid']}")
-            kep_label.setFont(QFont('', 11, QFont.Weight.Bold))
+            kep_label.setFont(QFont('', 12, QFont.Weight.Bold))
             left.addWidget(kep_label)
             left.addWidget(QLabel(f"Promień (R⊕): {row['koi_prad']}"))
             left.addWidget(QLabel(f"Okres (dni): {row['koi_period']}"))
             left.addWidget(QLabel(f"Głębokość: {row['koi_depth']}"))
+            lwrap = QWidget(); lwrap.setLayout(left)
+            card_layout.addWidget(lwrap, 0, 0)
 
-            card_layout.addLayout(left)
+            # środek: badge'e
+            midw = QWidget(); mid = QVBoxLayout(midw)
+            pred_label = str(row.get('prediction_label', '—'))
+            hab_label = str(row.get('habitable', '—'))
+            pred_badge = self._badge(pred_label, 'ok' if 'EGZO' in pred_label else 'err')
+            hab_kind = 'ok' if 'Możliwe' in hab_label else ('warn' if 'Marginalnie' in hab_label else 'err')
+            hab_badge = self._badge(hab_label, hab_kind)
+            mid.addWidget(pred_badge)
+            mid.addSpacing(6)
+            mid.addWidget(hab_badge)
+            if 'insolation_s_earth' in row and pd.notna(row['insolation_s_earth']):
+                s = round(float(row['insolation_s_earth']), 3)
+                mid.addSpacing(8)
+                mid.addWidget(QLabel(f"S (S⊕): {s}"))
+            card_layout.addWidget(midw, 0, 1)
 
-            # middle: predykcja + habitability
-            mid = QVBoxLayout()
-            pred = QLabel(f"Predykcja: {row['prediction_label']}")
-            pred.setFont(QFont('', 10, QFont.Weight.DemiBold))
-            mid.addWidget(pred)
-            hab = QLabel(f"Życie: {row['habitable']}")
-            mid.addWidget(hab)
-            card_layout.addLayout(mid)
-
-            # right: akcje
-            right = QVBoxLayout()
+            # prawa: akcje
+            rightw = QWidget(); right = QVBoxLayout(rightw)
             describe_btn = QPushButton("Opisz")
+            describe_btn.setProperty("class", "primary")
             describe_btn.clicked.connect(lambda _, r=row: self.show_description(r))
             right.addWidget(describe_btn)
             map_btn = QPushButton("Mapa")
-
             map_btn.clicked.connect(lambda _, r=row: self.show_sky_map(r))
-
             right.addWidget(map_btn)
+            card_layout.addWidget(rightw, 0, 2)
 
-            card_layout.addLayout(right)
-            card.setLayout(card_layout)
+            self._shadow(card, 20)
             self.scroll_layout.addWidget(card)
 
+    # ======================== pełnoekranowy opis (stabilny, bez wideo) ========================
     def show_description(self, row):
+        # Bez wyjątków krytycznych — wszystko w try/except
         try:
             description = describe_exoplanet(row)
         except Exception:
-            description = "Brak opisu — nie udało się wygenerować opisu." 
-        msg = QMessageBox(self)
-        msg.setWindowTitle(f"Opis planety {row['kepid']}")
-        msg.setTextFormat(Qt.PlainText)  # ⬅️ to kluczowe!
-        msg.setText(description)
-        msg.exec_()
+            description = "Brak opisu — nie udało się wygenerować opisu."
+
+        dlg = QtWidget()
+        dlg.setObjectName("opisRoot")
+        dlg.setWindowTitle(f"Opis planety {self._get(row,'kepid','')}")
+        dlg.setWindowFlag(Qt.Window, True)
+        dlg.setWindowModality(Qt.ApplicationModal)
+        dlg.setStyleSheet(f"""
+            QWidget#opisRoot {{ background-color: {DIALOG_BG}; color: {DIALOG_TEXT}; font-size: 16px; }}
+            QLabel#heading {{ font-size: 24px; font-weight: 800; color: white; }}
+            QTextEdit#desc {{ background: {DIALOG_CARD}; color: {DIALOG_TEXT}; border: 1px solid {DIALOG_BORDER}; border-radius: 12px; padding: 14px; font-size: 16px; }}
+            QWidget#panel {{ background: {DIALOG_CARD}; border: 1px solid {DIALOG_BORDER}; border-radius: 14px; }}
+            QLabel#caption {{ color: {DIALOG_TEXT}; padding: 8px 12px; font-size: 15px; }}
+            QLabel.key {{ color:white; font-size: 15px; }}
+            QLabel.val {{ color: white; font-weight: 600; font-size: 16px; }}
+            QPushButton {{ background-color: #0f1a33; color: {DIALOG_TEXT}; border: 1px solid {DIALOG_BORDER}; border-radius: 10px; padding: 10px 14px; }}
+            QPushButton:hover {{ border-color: {ACCENT}; color: {ACCENT}; }}
+            QPushButton.primary {{ background-color: {ACCENT}; color: #001018; border: none; }}
+        """)
+
+        grid = QGridLayout(dlg)
+        grid.setContentsMargins(18,18,18,18)
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(16)
+
+        # OPIS
+        desc_box = QtWidget(); desc_box.setObjectName("panel")
+        dlay = QVBoxLayout(desc_box); dlay.setContentsMargins(14,14,14,14)
+        heading = QLabel(f"Planeta {self._get(row,'kepid','')} — opis")
+        heading.setObjectName("heading"); dlay.addWidget(heading)
+        desc = QTextEdit(); desc.setReadOnly(True); desc.setObjectName("desc"); desc.setText(description)
+        dlay.addWidget(desc)
+        grid.addWidget(desc_box, 0, 0)
+
+        # DANE
+        params = QtWidget(); params.setObjectName("panel")
+        form = QFormLayout(params); form.setHorizontalSpacing(16); form.setVerticalSpacing(10); form.setContentsMargins(16, 16, 16, 16)
+
+        def _val(x, fmt="{:.3f}"):
+            try:
+                xf = float(x)
+                if pd.isna(xf):
+                    return "—"
+                if abs(xf) >= 1000:
+                    return f"{xf:.0f}"
+                return fmt.format(xf)
+            except Exception:
+                return str(x) if (x is not None and x == x) else "—"
+
+        prad    = self._safe_float(self._get(row, 'koi_prad'))
+        period  = self._safe_float(self._get(row, 'koi_period'))
+        depth   = self._safe_float(self._get(row, 'koi_depth'))
+        dur     = self._safe_float(self._get(row, 'koi_duration'))
+        teff    = self._safe_float(self._get(row, 'koi_steff'))
+        rstar   = self._safe_float(self._get(row, 'koi_srad'))
+        mstar   = self._safe_float(self._get(row, 'koi_smass'))
+        insol   = self._safe_float(self._get(row, 'insolation_s_earth'))
+        koi_ins = self._safe_float(self._get(row, 'koi_insol'))
+        ra      = self._safe_float(self._get(row, 'ra'))
+        dec     = self._safe_float(self._get(row, 'dec'))
+        hab     = self._get(row, 'habitable', '—')
+        pred    = self._get(row, 'prediction_label', '—')
+        temp    = self._safe_float(self._get(row, 'koi_teq'))
+
+        a_au = None
+        if period is not None and mstar is not None and mstar > 0:
+            a_au = ((period/365.25)**2 * mstar)**(1/3)
+        l_rel = None
+        if teff is not None and rstar is not None:
+            l_rel = (rstar**2) * ((teff/5778.0)**4)
+        if insol is None and l_rel is not None and a_au not in (None, 0):
+            insol = l_rel / (a_au**2)
+
+        # Pomocnicza funkcja dodawania wierszy
+        def _kv(key_txt, val_txt):
+            k = QLabel(key_txt); k.setObjectName("key")
+            v = QLabel(val_txt); v.setObjectName("val")
+            form.addRow(k, v)
+
+        _kv("KepID:", str(self._get(row, "kepid", "")))
+        _kv("Klasyfikacja (predykcja):", str(pred))
+        _kv("Zamieszkiwalność:", str(hab))
+        _kv("Promień planety (R⊕):", _val(prad))
+        _kv("Okres orbitalny (dni):", _val(period))
+        _kv("Głębokość tranzytu (ppm):", _val(depth, "{:.0f}"))
+        _kv("Czas trwania tranzytu (h):", _val(dur))
+        _kv("Temperatura równowagi Teq (K):", _val(temp))
+        _kv("Strumień S (S⊕):", _val(insol))
+        if koi_ins is not None:
+            _kv("koi_insol (S⊕, katalog):", _val(koi_ins))
+        _kv("Teff gwiazdy (K):", _val(teff))
+        _kv("Promień gwiazdy (R☉):", _val(rstar))
+        _kv("Masa gwiazdy (M☉):", _val(mstar))
+        if l_rel is not None:
+            _kv("Jasność gwiazdy (L☉, est.):", _val(l_rel))
+        if a_au is not None:
+            _kv("Półoś wielka a (AU, est.):", _val(a_au))
+        if ra is not None:
+            _kv("RA (deg):", _val(ra))
+        if dec is not None:
+            _kv("DEC (deg):", _val(dec))
+
+        grid.addWidget(params, 0, 1)
+
+        # SEKCJA PLACEHOLDER RENDERA (bez multimediów)
+        render_box = QtWidget(); render_box.setObjectName("panel")
+        rlay = QVBoxLayout(render_box); rlay.setContentsMargins(12,12,12,12)
+        caption = QLabel("Render (wideo): assets/lawa_rotacja.mp4 — podgląd wyłączony"); caption.setObjectName("caption")
+        rlay.addWidget(caption)
+        info = QLabel("To jest stabilny tryb bez odtwarzania wideo. Jeśli chcesz włączyć player, zainstaluj backend PyQt5 Multimedia (np. GStreamer) i zgłoś — dodam player z fallbackiem."); info.setWordWrap(True)
+        rlay.addWidget(info)
+
+        btn_close = QPushButton("Zamknij  (Esc)")
+        btn_close.clicked.connect(dlg.close)
+        rlay.addWidget(btn_close, alignment=Qt.AlignRight)
+
+        grid.addWidget(render_box, 1, 0, 1, 2)
+
+        grid.setColumnStretch(0, 1); grid.setColumnStretch(1, 1)
+        grid.setRowStretch(0, 1); grid.setRowStretch(1, 1)
+
+        dlg.showFullScreen(); dlg.raise_(); dlg.activateWindow()
 
     def show_detail_dialog(self, row):
-        # otwórz bogatszy dialog z przyciskiem do mapy
         dlg = PlanetDialog(row, self)
         dlg.exec_()
 
     def show_sky_map(self, row):
-        ra = row.get('ra') if hasattr(row, 'get') else (row['ra'] if 'ra' in row.index else None)
-        dec = row.get('dec') if hasattr(row, 'get') else (row['dec'] if 'dec' in row.index else None)
+        ra = self._get(row, 'ra')
+        dec = self._get(row, 'dec')
         try:
             import pandas as _pd
             if ra is None or dec is None or _pd.isna(ra) or _pd.isna(dec):
@@ -501,7 +672,6 @@ class ModernExoplanetApp(QWidget):
                 return
         except Exception:
             pass
-        # użyj istniejącego SkyMap z RA/DEC
         try:
             from sky_map import SkyMap
             self._sky = SkyMap(ra=float(ra), dec=float(dec))
@@ -512,7 +682,6 @@ class ModernExoplanetApp(QWidget):
     def show_stats(self, df):
         total = len(df)
         exo = len(df[df['prediction'] == 1]) if 'prediction' in df.columns else 0
-        false = total - exo
         avg_radius = round(df['koi_prad'].mean(), 2) if not df['koi_prad'].isnull().all() else 0
         avg_depth = round(df['koi_depth'].mean(), 2) if not df['koi_depth'].isnull().all() else 0
         avg_period = round(df['koi_period'].mean(), 2) if not df['koi_period'].isnull().all() else 0
@@ -524,7 +693,7 @@ class ModernExoplanetApp(QWidget):
         if self.df is None:
             return
         if not self.turbo_checkbox.isChecked():
-            fig = px.histogram(self.df, x="prediction_label", color="prediction_label", title="Rozkład predykcji")
+            fig = px.histogram(self.df, x="habitable", color="habitable", title="Klasyfikacja zamieszkiwalności")
             fig.update_layout(template="plotly_dark")
             fig.show()
 
@@ -534,7 +703,7 @@ class ModernExoplanetApp(QWidget):
             self.df.to_csv(file_path, index=False)
             QMessageBox.information(self, "Zapisano", "Wyniki zostały zapisane!")
 
-    # ------------------- helpers -------------------
+    # ------------------- helpers: progress -------------------
     def on_page_size_change(self, txt):
         try:
             self.page_size = int(txt)
@@ -545,6 +714,9 @@ class ModernExoplanetApp(QWidget):
     def _start_loading(self):
         self.progress.setValue(5)
         self._progress_target = 90
+        if not hasattr(self, 'load_timer'):
+            self.load_timer = QTimer()
+            self.load_timer.timeout.connect(self._simulate_progress)
         self.load_timer.start(40)
 
     def _simulate_progress(self):
