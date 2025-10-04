@@ -37,7 +37,7 @@ DIALOG_TEXT = "#eaf2ff"
 class ModernExoplanetApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Exoplanet — Deluxe UI")
+        self.setWindowTitle("Exoplanet — LAMBDA")
         self.setGeometry(80, 80, 1200, 820)
         self.setWindowIcon(QIcon("assets/kepler_logo.png"))
 
@@ -77,7 +77,7 @@ class ModernExoplanetApp(QWidget):
         try:
             self.model = pickle.load(open("exoplanet_model.pkl", "rb"))
         except Exception as e:
-            print("Uwaga: nie udało się załadować modelu przy starcie:", e)
+            print("Error: failed to load the model at startup", e)
 
         # pagination
         self.current_page = 0
@@ -99,14 +99,14 @@ class ModernExoplanetApp(QWidget):
             logo.setPixmap(pix)
         top_bar.addWidget(logo)
 
-        title = QLabel("Exoplanet — Deluxe Edition")
+        title = QLabel("Exoplanet — LAMBDA")
         title.setObjectName("title")
         top_bar.addWidget(title)
 
         top_bar.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Szukaj po ID (kepid) lub etykiecie predykcji…  ⏎")
+        self.search_input.setPlaceholderText("Search by ID (kepid) or label")
         self.search_input.returnPressed.connect(self.apply_filters)
         self.search_input.setMaximumWidth(420)
         top_bar.addWidget(self.search_input)
@@ -115,23 +115,23 @@ class ModernExoplanetApp(QWidget):
         self.page_size_combo.addItems(["6", "12", "24", "48"])
         self.page_size_combo.setCurrentText(str(self.page_size))
         self.page_size_combo.currentTextChanged.connect(self.on_page_size_change)
-        top_bar.addWidget(QLabel("Na stronie:"))
+        top_bar.addWidget(QLabel("On page:"))
         top_bar.addWidget(self.page_size_combo)
 
-        self.plot_button = QPushButton("Wykres")
+        self.plot_button = QPushButton("Graph")
         self.plot_button.clicked.connect(self.show_plot)
         self.plot_button.setEnabled(False)
         top_bar.addWidget(self.plot_button)
 
         # Zamknij / minimalizuj — małe, dyskretne
         close_btn = QPushButton("✖")
-        close_btn.setToolTip("Zamknij aplikację (Esc)")
+        close_btn.setToolTip("Close app (Esc)")
         close_btn.setFixedSize(36, 36)
         close_btn.clicked.connect(self.close)
         top_bar.addWidget(close_btn)
 
         min_btn = QPushButton("▬")
-        min_btn.setToolTip("Minimalizuj okno")
+        min_btn.setToolTip("Minimize window")
         min_btn.setFixedSize(36, 36)
         min_btn.clicked.connect(self.showMinimized)
         top_bar.addWidget(min_btn)
@@ -143,64 +143,64 @@ class ModernExoplanetApp(QWidget):
         center_layout.setSpacing(14)
 
         # sidebar (filtry)
-        sidebar = QGroupBox("Filtry i akcje")
+        sidebar = QGroupBox("Filters and actions")
         sidebar_layout = QVBoxLayout()
         sidebar_layout.setSpacing(8)
 
-        load_btn = QPushButton("Wczytaj CSV")
+        load_btn = QPushButton("Import CSV")
         load_btn.clicked.connect(self.load_csv)
         load_btn.setProperty("class", "secondary")
         sidebar_layout.addWidget(load_btn)
 
-        nasa_btn = QPushButton("Pobierz dane z NASA")
+        nasa_btn = QPushButton("Download data from NASA")
         nasa_btn.clicked.connect(self.fetch_nasa_data)
         sidebar_layout.addWidget(nasa_btn)
 
-        demo_btn = QPushButton("Dane demo")
+        demo_btn = QPushButton("Demo data")
         demo_btn.clicked.connect(self.load_demo_data)
         sidebar_layout.addWidget(demo_btn)
 
         # sliders with labels
-        sliders = QGroupBox("Zakresy")
+        sliders = QGroupBox("Range")
         sliders_layout = QFormLayout()
 
         self.slider_radius = QSlider(Qt.Horizontal)
         self.slider_radius.setRange(0, 20)
         self.slider_radius.setValue(0)
-        sliders_layout.addRow("Min promień (R⊕):", self.slider_radius)
+        sliders_layout.addRow("Min radius (R⊕):", self.slider_radius)
 
         self.slider_depth = QSlider(Qt.Horizontal)
         self.slider_depth.setRange(0, 10000)
         self.slider_depth.setValue(0)
-        sliders_layout.addRow("Min głębokość:", self.slider_depth)
+        sliders_layout.addRow("Min transition depth:", self.slider_depth)
 
         self.slider_period = QSlider(Qt.Horizontal)
         self.slider_period.setRange(0, 1000)
         self.slider_period.setValue(0)
-        sliders_layout.addRow("Min okres (dni):", self.slider_period)
+        sliders_layout.addRow("Min period (days):", self.slider_period)
 
         sliders.setLayout(sliders_layout)
         sidebar_layout.addWidget(sliders)
 
-        self.habitable_checkbox = QCheckBox("Tylko możliwe do życia")
+        self.habitable_checkbox = QCheckBox("Only viable for life")
         sidebar_layout.addWidget(self.habitable_checkbox)
 
-        self.exoplanet_checkbox = QCheckBox("Tylko potwierdzone egzoplanety (predykcja)")
+        self.exoplanet_checkbox = QCheckBox("Only confirmed exoplanets (prediciton)")
         sidebar_layout.addWidget(self.exoplanet_checkbox)
 
-        apply_btn = QPushButton("Odśwież filtry")
+        apply_btn = QPushButton("Refresh filters")
         apply_btn.clicked.connect(self.apply_filters)
         apply_btn.setProperty("class", "primary")
         sidebar_layout.addWidget(apply_btn)
 
-        save_btn = QPushButton("Zapisz wyniki")
+        save_btn = QPushButton("Save results")
         save_btn.clicked.connect(self.save_results)
         save_btn.setEnabled(False)
         self.save_btn = save_btn
         sidebar_layout.addWidget(save_btn)
 
         # turbo mode
-        self.turbo_checkbox = QCheckBox("Tryb Turbo — szybkie podglądy")
+        self.turbo_checkbox = QCheckBox("Turbo Mode - quick view")
         sidebar_layout.addWidget(self.turbo_checkbox)
 
         # progress bar
@@ -230,15 +230,15 @@ class ModernExoplanetApp(QWidget):
 
         # pagination controls
         pagination = QHBoxLayout()
-        self.prev_button = QPushButton("◀ Poprzednia")
+        self.prev_button = QPushButton("◀ Previous")
         self.prev_button.clicked.connect(self.prev_page)
         self.prev_button.setEnabled(False)
         pagination.addWidget(self.prev_button)
 
-        self.page_label = QLabel("Strona 0 z 0")
+        self.page_label = QLabel("Page 0 out of 0")
         pagination.addWidget(self.page_label)
 
-        self.next_button = QPushButton("Następna ▶")
+        self.next_button = QPushButton("Next ▶")
         self.next_button.clicked.connect(self.next_page)
         self.next_button.setEnabled(False)
         pagination.addWidget(self.next_button)
@@ -316,7 +316,7 @@ class ModernExoplanetApp(QWidget):
 
     # ------------------- data loading & processing -------------------
     def load_csv(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Wybierz plik CSV", "", "CSV Files (*.csv)")
+        file_path, _ = QFileDialog.getOpenFileName(self, "Choose a CSV file", "", "CSV Files (*.csv)")
         if file_path:
             self._start_loading()
             QTimer.singleShot(50, lambda: self.process_file(file_path))
@@ -329,10 +329,10 @@ class ModernExoplanetApp(QWidget):
             file_path = "nasa_exoplanets.csv"
             with open(file_path, "wb") as f:
                 f.write(response.content)
-            QMessageBox.information(self, "NASA", "Dane z NASA pobrane.")
+            QMessageBox.information(self, "NASA", "Data from NASA downloaded.")
             QTimer.singleShot(50, lambda: self.process_file(file_path))
         except Exception as e:
-            QMessageBox.critical(self, "Błąd NASA", str(e))
+            QMessageBox.critical(self, "Error NASA", str(e))
             self._stop_loading()
 
     def load_demo_data(self):
@@ -346,7 +346,7 @@ class ModernExoplanetApp(QWidget):
             required = ['koi_period', 'koi_duration', 'koi_depth', 'koi_prad', 'kepid']
             optional = [c for c in ['ra', 'dec', 'koi_teq', 'koi_steff', 'koi_srad', 'koi_smass', 'koi_insol'] if c in df.columns]
             if not all(col in df.columns for col in required):
-                QMessageBox.critical(self, "Błąd", f"Brakuje kolumn: {required}")
+                QMessageBox.critical(self, "Error", f"Columns: {required}")
                 self._stop_loading()
                 return
             df = df[required + optional].dropna(subset=required)
@@ -363,7 +363,7 @@ class ModernExoplanetApp(QWidget):
             else:
                 df['prediction'] = ((df['koi_prad'] > 0.8) & (df['koi_depth'] < 8000)).astype(int)
 
-            df['prediction_label'] = df['prediction'].apply(lambda x: "EGZOPLANETA" if x == 1 else "FAŁSZYWY POZYTYW")
+            df['prediction_label'] = df['prediction'].apply(lambda x: "EXOPLANET" if x == 1 else "FALSE POSITIVE")
             df['insolation_s_earth'] = df.apply(self._estimate_insolation, axis=1)
             df['habitable'] = df.apply(self.check_habitability, axis=1)
 
@@ -377,7 +377,7 @@ class ModernExoplanetApp(QWidget):
             self.save_btn.setEnabled(True)
             self._stop_loading()
         except Exception as e:
-            QMessageBox.critical(self, "Błąd", str(e))
+            QMessageBox.critical(self, "Error", str(e))
             self._stop_loading()
 
     # -------------------- bardziej naukowe kryterium --------------------
@@ -388,22 +388,22 @@ class ModernExoplanetApp(QWidget):
         S = self._safe_float(self._get(row, 'insolation_s_earth'))
 
         if teff is not None and not (2600 <= teff <= 7200):
-            return "Warunki nie sprzyjają życiu"
+            return "Conditions do not support life"
 
         rocky_strict = (r is not None) and (0.5 <= r <= 1.8)
         rocky_loose = (r is not None) and (0.5 <= r <= 2.5)
 
         if S is not None and rocky_strict and (0.35 <= S <= 1.5):
-            return "Możliwe warunki do życia"
+            return "Conditions support life"
         if S is not None and rocky_loose and (0.25 <= S <= 2.2):
-            return "Marginalnie możliwe"
+            return "Conditions marginally support life"
 
         if teq is not None:
             if rocky_strict and (240 <= teq <= 330):
-                return "Możliwe warunki do życia"
+                return "Conditions support life"
             if rocky_loose and (200 <= teq <= 360):
-                return "Marginalnie możliwe"
-        return "Warunki nie sprzyjają życiu"
+                return "Marginally possible conditions"
+        return "Conditions do not support life"
 
     # ------------------- filtering / pagination / UI update -------------------
     def apply_filters(self):
@@ -421,7 +421,7 @@ class ModernExoplanetApp(QWidget):
         df = df[df['koi_depth'] >= self.slider_depth.value()]
         df = df[df['koi_period'] >= self.slider_period.value()]
         if self.habitable_checkbox.isChecked():
-            df = df[df['habitable'].isin(["Możliwe warunki do życia", "Marginalnie możliwe"])]
+            df = df[df['habitable'].isin(["Conditions support life", "Conditions marginally support life"])]
         if self.exoplanet_checkbox.isChecked():
             df = df[df['prediction'] == 1]
 
@@ -439,7 +439,7 @@ class ModernExoplanetApp(QWidget):
         self.display_cards(page_df)
         self.show_stats(self.filtered_df)
         total_pages = max(1, (len(self.filtered_df) + self.page_size - 1) // self.page_size)
-        self.page_label.setText(f"Strona {self.current_page + 1} z {total_pages}")
+        self.page_label.setText(f"Page {self.current_page + 1} out of {total_pages}")
         self.prev_button.setEnabled(self.current_page > 0)
         self.next_button.setEnabled((self.current_page + 1) * self.page_size < len(self.filtered_df))
 
@@ -475,7 +475,7 @@ class ModernExoplanetApp(QWidget):
                 w.deleteLater()
 
         if df.empty:
-            empty = QLabel("Brak wyników dla aktualnych filtrów.")
+            empty = QLabel("No results for the activated filters.")
             empty.setAlignment(Qt.AlignCenter)
             self.scroll_layout.addWidget(empty)
             return
@@ -493,9 +493,9 @@ class ModernExoplanetApp(QWidget):
             kep_label = QLabel(f"KepID: {row['kepid']}")
             kep_label.setFont(QFont('', 12, QFont.Weight.Bold))
             left.addWidget(kep_label)
-            left.addWidget(QLabel(f"Promień (R⊕): {row['koi_prad']}"))
-            left.addWidget(QLabel(f"Okres (dni): {row['koi_period']}"))
-            left.addWidget(QLabel(f"Głębokość: {row['koi_depth']}"))
+            left.addWidget(QLabel(f"Radius (R⊕): {row['koi_prad']}"))
+            left.addWidget(QLabel(f"Orbital period (days): {row['koi_period']}"))
+            left.addWidget(QLabel(f"Transit depth: {row['koi_depth']}"))
             lwrap = QWidget(); lwrap.setLayout(left)
             card_layout.addWidget(lwrap, 0, 0)
 
@@ -503,8 +503,8 @@ class ModernExoplanetApp(QWidget):
             midw = QWidget(); mid = QVBoxLayout(midw)
             pred_label = str(row.get('prediction_label', '—'))
             hab_label = str(row.get('habitable', '—'))
-            pred_badge = self._badge(pred_label, 'ok' if 'EGZO' in pred_label else 'err')
-            hab_kind = 'ok' if 'Możliwe' in hab_label else ('warn' if 'Marginalnie' in hab_label else 'err')
+            pred_badge = self._badge(pred_label, 'ok' if 'EXO' in pred_label else 'err')
+            hab_kind = 'ok' if 'Conditions support life' in hab_label else ('warn' if 'Marginally' in hab_label else 'err')
             hab_badge = self._badge(hab_label, hab_kind)
             mid.addWidget(pred_badge)
             mid.addSpacing(6)
@@ -512,16 +512,16 @@ class ModernExoplanetApp(QWidget):
             if 'insolation_s_earth' in row and pd.notna(row['insolation_s_earth']):
                 s = round(float(row['insolation_s_earth']), 3)
                 mid.addSpacing(8)
-                mid.addWidget(QLabel(f"S (S⊕): {s}"))
+                #mid.addWidget(QLabel(f"S (S⊕): {s}"))
             card_layout.addWidget(midw, 0, 1)
 
             # prawa: akcje
             rightw = QWidget(); right = QVBoxLayout(rightw)
-            describe_btn = QPushButton("Opisz")
+            describe_btn = QPushButton("Description")
             describe_btn.setProperty("class", "primary")
             describe_btn.clicked.connect(lambda _, r=row: self.show_detail_dialog(r))
             right.addWidget(describe_btn)
-            map_btn = QPushButton("Mapa")
+            map_btn = QPushButton("Map")
             map_btn.clicked.connect(lambda _, r=row: self.show_sky_map(r))
             right.addWidget(map_btn)
             card_layout.addWidget(rightw, 0, 2)
@@ -535,11 +535,11 @@ class ModernExoplanetApp(QWidget):
         try:
             description = describe_exoplanet(row)
         except Exception:
-            description = "Brak opisu — nie udało się wygenerować opisu."
+            description = "Missing description - failed to generate a description"
 
         dlg = QtWidget()
         dlg.setObjectName("opisRoot")
-        dlg.setWindowTitle(f"Opis planety {self._get(row,'kepid','')}")
+        dlg.setWindowTitle(f"Planet description {self._get(row,'kepid','')}")
         dlg.setWindowFlag(Qt.Window, True)
         dlg.setWindowModality(Qt.ApplicationModal)
         dlg.setStyleSheet(f"""
@@ -563,7 +563,7 @@ class ModernExoplanetApp(QWidget):
         # OPIS
         desc_box = QtWidget(); desc_box.setObjectName("panel")
         dlay = QVBoxLayout(desc_box); dlay.setContentsMargins(14,14,14,14)
-        heading = QLabel(f"Planeta {self._get(row,'kepid','')} — opis")
+        heading = QLabel(f"Planet {self._get(row,'kepid','')} — opis")
         heading.setObjectName("heading"); dlay.addWidget(heading)
         desc = QTextEdit(); desc.setReadOnly(True); desc.setObjectName("desc"); desc.setText(description)
         dlay.addWidget(desc)
@@ -615,23 +615,23 @@ class ModernExoplanetApp(QWidget):
             form.addRow(k, v)
 
         _kv("KepID:", str(self._get(row, "kepid", "")))
-        _kv("Klasyfikacja (predykcja):", str(pred))
-        _kv("Zamieszkiwalność:", str(hab))
-        _kv("Promień planety (R⊕):", _val(prad))
-        _kv("Okres orbitalny (dni):", _val(period))
-        _kv("Głębokość tranzytu (ppm):", _val(depth, "{:.0f}"))
-        _kv("Czas trwania tranzytu (h):", _val(dur))
-        _kv("Temperatura równowagi Teq (K):", _val(temp))
-        _kv("Strumień S (S⊕):", _val(insol))
+        _kv("Classification (prediction):", str(pred))
+        _kv("Habitability:", str(hab))
+        _kv("Planet radius (R⊕):", _val(prad))
+        _kv("Orbital period (days):", _val(period))
+        _kv("Transit depth (ppm):", _val(depth, "{:.0f}"))
+        _kv("Time of transit (h):", _val(dur))
+        _kv("Equilibrium temperature Teq (K):", _val(temp))
+        _kv("S Stream (S⊕):", _val(insol))
         if koi_ins is not None:
-            _kv("koi_insol (S⊕, katalog):", _val(koi_ins))
-        _kv("Teff gwiazdy (K):", _val(teff))
-        _kv("Promień gwiazdy (R☉):", _val(rstar))
-        _kv("Masa gwiazdy (M☉):", _val(mstar))
+            _kv("koi_insol (S⊕, catalog):", _val(koi_ins))
+        _kv("Teff of a star (K):", _val(teff))
+        _kv("Star radius (R☉):", _val(rstar))
+        _kv("Star mass (M☉):", _val(mstar))
         if l_rel is not None:
-            _kv("Jasność gwiazdy (L☉, est.):", _val(l_rel))
+            _kv("Star luminosity (L☉, est.):", _val(l_rel))
         if a_au is not None:
-            _kv("Półoś wielka a (AU, est.):", _val(a_au))
+            _kv("Semimajor axis a (AU, est.):", _val(a_au))
         if ra is not None:
             _kv("RA (deg):", _val(ra))
         if dec is not None:
@@ -647,7 +647,7 @@ class ModernExoplanetApp(QWidget):
         info = QLabel("To jest stabilny tryb bez odtwarzania wideo. Jeśli chcesz włączyć player, zainstaluj backend PyQt5 Multimedia (np. GStreamer) i zgłoś — dodam player z fallbackiem."); info.setWordWrap(True)
         rlay.addWidget(info)
 
-        btn_close = QPushButton("Zamknij  (Esc)")
+        btn_close = QPushButton("Close  (Esc)")
         btn_close.clicked.connect(dlg.close)
         rlay.addWidget(btn_close, alignment=Qt.AlignRight)
 
@@ -676,7 +676,7 @@ class ModernExoplanetApp(QWidget):
         try:
             import pandas as _pd
             if ra is None or dec is None or _pd.isna(ra) or _pd.isna(dec):
-                QMessageBox.information(self, 'Brak danych', 'Brak współrzędnych RA/DEC dla tej planety.')
+                QMessageBox.information(self, 'Missing data', 'Missing RA/DEC coordinates for this planet dla tej planety.')
                 return
         except Exception:
             pass
@@ -685,7 +685,7 @@ class ModernExoplanetApp(QWidget):
             self._sky = SkyMap(ra=float(ra), dec=float(dec))
             self._sky.show()
         except Exception as e:
-            QMessageBox.critical(self, 'Mapa nieba', f'Nie udało się otworzyć mapy: {e}')
+            QMessageBox.critical(self, 'Nightsky map', f'Failed to open map : {e}')
 
     def show_stats(self, df):
         total = len(df)
@@ -694,22 +694,22 @@ class ModernExoplanetApp(QWidget):
         avg_depth = round(df['koi_depth'].mean(), 2) if not df['koi_depth'].isnull().all() else 0
         avg_period = round(df['koi_period'].mean(), 2) if not df['koi_period'].isnull().all() else 0
         self.stats_label.setText(
-            f"📊 {total} rekordów — {exo} egzoplanet | Śr. R: {avg_radius} | Śr. głęb.: {avg_depth} | Śr. okres: {avg_period}"
+            f"📊 {total} recorded — {exo} exoplanet | Avg. R: {avg_radius} | Avg. depth.: {avg_depth} | Avg. period: {avg_period}"
         )
 
     def show_plot(self):
         if self.df is None:
             return
         if not self.turbo_checkbox.isChecked():
-            fig = px.histogram(self.df, x="habitable", color="habitable", title="Klasyfikacja zamieszkiwalności")
+            fig = px.histogram(self.df, x="habitable", color="habitable", title="Habitable Zone Graph")
             fig.update_layout(template="plotly_dark")
             fig.show()
 
     def save_results(self):
-        file_path, _ = QFileDialog.getSaveFileName(self, "Zapisz jako", "", "CSV Files (*.csv)")
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save as", "", "CSV Files (*.csv)")
         if file_path and self.df is not None:
             self.df.to_csv(file_path, index=False)
-            QMessageBox.information(self, "Zapisano", "Wyniki zostały zapisane!")
+            QMessageBox.information(self, "Saved", "Results saved!")
 
     # ------------------- helpers: progress -------------------
     def on_page_size_change(self, txt):
